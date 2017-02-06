@@ -1,12 +1,13 @@
 package org.usfirst.frc.team835.robot;
 
-/*----------------------------------------------------------------------------*/
- /* Copyright (c) FIRST 2008. All Rights Reserved.                             */
- /* Open Source Software - may be modified and shared by FRC teams. The code   */
- /* must be accompanied by the FIRST BSD license file in the root directory of */
- /* the project.                                                               */
- /*----------------------------------------------------------------------------*/
+import java.util.Arrays;
 
+/*----------------------------------------------------------------------------*/
+/* Copyright (c) FIRST 2008. All Rights Reserved.                             */
+/* Open Source Software - may be modified and shared by FRC teams. The code   */
+/* must be accompanied by the FIRST BSD license file in the root directory of */
+/* the project.                                                               */
+/*----------------------------------------------------------------------------*/
 
 import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
@@ -22,107 +23,114 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  */
 public class Robot extends IterativeRobot {
 
-    /**
-     * This function is run when the robot is first started up and should be
-     * used for any initialization code.
-     */
-    RobotDrive myRobot;
-    Joystick whiteR, whiteL, black;
-    int autoLoopCounter;
-	double winchSpeed, scissorsSpeed, leftCo, rightCo;
-    TalonSRX leftM, rightM, winch, scissors;
-    double[] contours, defaultValue;
-    NetworkTable table;
-    public void robotInit() {
-    	CameraServer.getInstance().startAutomaticCapture();
-    	CameraServer.getInstance().getVideo();
-    	CameraServer.getInstance().putVideo("Stream", 640, 480);
-    	
-    	SmartDashboard.putNumber("myNum", autoLoopCounter);
+	/**
+	 * This function is run when the robot is first started up and should be
+	 * used for any initialization code.
+	 */
 
-        leftM = new TalonSRX(0);
-        rightM = new TalonSRX(1);
-//        winch = new TalonSRX(2);
-//        scissors = new TalonSRX(3);
-        leftM.setInverted(true);
-        rightM.setInverted(true);
-        whiteR = new Joystick(0);
-//        black = new Joystick(1);
-//        whiteL = new Joystick(2);
-        myRobot = new RobotDrive(leftM, rightM);
-    	
-        table = NetworkTable.getTable("GRIP/myContoursReport");
-    	defaultValue = new double[0];
-//    	while(true){
-    		double[] areas = table.getNumberArray("area", defaultValue);
-    		System.out.println("Areas: ");
-    		for( double area : areas){
-    			System.out.print(area + " ");
-    		}
-    		System.out.println();
-    		Timer.delay(1.0);
-//    	}
-    }
+	RobotDrive myRobot;
+	Joystick white;
+	int autoLoopCounter, Xres, Yres;
+	double[] values;
+	TalonSRX leftM, rightM;
+	NetworkTable table;
 
-    /**
-     * This function is called periodically during autonomous
-     */
-    public void autonomousInit() {
-        autoLoopCounter = 0;
-    }
+	public Robot() {
+		// NetworkTable.setTeam(835);
+		table = NetworkTable.getTable("GRIP/targets");
+	}
 
-    public void autonomousPeriodic() {
-        if (autoLoopCounter < 100) {
-            myRobot.drive(0.30, 0.0);
-            autoLoopCounter++;
-        } else {
-            myRobot.drive(0.0, 0.0);
-        }
-        Timer.delay(0.05);
-    }
+	public void robotInit() {
+		CameraServer.getInstance().addAxisCamera("Axis Camera", "10.8.35.4");
+		Xres = 640;
+		Yres = 480;
+		// CameraServer.getInstance().getVideo();
+		// CameraServer.getInstance().putVideo("Stream", 640, 480);
 
-    /**
-     * This function is called periodically during operator control
-     */
-    public void teleopInit() {//The teleopInit method is called once each time the robot enters teleop mode
-    	
-//    	SmartDashboard.putNumber("whiteR.getY()", whiteR.getY());
-//    	SmartDashboard.putNumber("whiteR.getZ()", whiteR.getZ());
-//    	SmartDashboard.putNumber("leftM.getPosition()", leftM.getPosition());
-//    	SmartDashboard.putNumber("rightM.getPosition()", rightM.getPosition());
-    }
+		leftM = new TalonSRX(0);
+		rightM = new TalonSRX(1);
 
-    public void teleopPeriodic() { //The teleopPeriodic method is entered each time the robot receives a packet instructing it to be in teleoperated enabled mode
-    	myRobot.arcadeDrive(whiteR);
-    	
-////    	contours = table.getNumberArray("area",defaultValue);
-////        for(int i=0;i<contours.length;i++)
-////        {
-////        	SmartDashboard.putNumber("Contour "+ (i+1) +": ", contours[i]);
-////        }
-////    	table = NetworkTable.getTable("GRIP/myContoursReport");
-////    	SmartDashboard.putData((NamedSendable) table);
-//    	
-//    	myRobot.tankDrive(black, whiteL);
-    	
-    	
-//    	if(whiteR.getRawButton(11)) winchSpeed = .5;
-//    	else if(whiteR.getRawButton(9)) winchSpeed = .75;
-//    	else if(whiteR.getRawButton(7)) winchSpeed = 1;
-//        else winchSpeed = 0;														
-//        winch.set(-winchSpeed);
-//        
-//        
-//        if(whiteR.getRawButton(5)) scissorsSpeed = 1;                                             
-//    	else if(whiteR.getRawButton(3)) scissorsSpeed = -1;
-//        else scissorsSpeed = 0;
-//        scissors.set(scissorsSpeed);
-    }
-    public void trigger()
-    {
-        myRobot.drive((black.getTrigger()?-0.10:-.15), 0.0);
-    }
-    public void testPeriodic() {
-        LiveWindow.run();
-    }
+		white = new Joystick(0);
+
+		myRobot = new RobotDrive(leftM, rightM);
+
+		// NetworkTable.setTeam(835);
+		// table = NetworkTable.getTable("GRIP/targets");
+
+		setTables(table);
+	}
+
+	/**
+	 * This function is called periodically during autonomous
+	 */
+	public void autonomousInit() {
+		autoLoopCounter = 0;
+	}
+
+	private double x;
+	double[] xvalues, areas;
+
+	public void autonomousPeriodic() {
+		setTables(table);
+		areas = table.getNumberArray("area", new double[0]);
+		if (areas.length == 0) {
+			return;
+		}
+		xvalues = table.getNumberArray("centerX", new double[0]);
+		if (xvalues.length == 0) {
+			x = Xres / 2;
+		} else {
+			x = xvalues[0];
+		}
+		SmartDashboard.putNumber("actualX", x);
+		double curve = curveToCenter(x);
+		SmartDashboard.putNumber("PreCurve", curve);
+		curve *= -1.55;
+		SmartDashboard.putNumber("PostCurve", curve);
+		
+		if (autoLoopCounter < 500 || true) {
+			myRobot.arcadeDrive(0.0, curve);
+			autoLoopCounter++;
+		}
+	}
+
+	double curveToCenter(double pos) {
+		
+		if (Math.abs(pos - Xres / 2) > 20) {
+			return (pos - Xres / 2) / Xres;
+		} else {
+			return 0.0;
+		}
+	}
+
+	/**
+	 * This function is called periodically during operator control
+	 */
+	public void teleopInit() {// The teleopInit method is called once each time
+								// the robot enters teleop mode
+
+	}
+
+	public void teleopPeriodic() { // The teleopPeriodic method is entered each
+									// time the robot receives a packet
+									// instructing it to be in teleoperated
+									// enabled mode
+		setTables(table);
+		myRobot.arcadeDrive(-white.getY(), -white.getZ());
+
+	}
+
+	public void testPeriodic() {
+		LiveWindow.run();
+	}
+
+	void setTables(NetworkTable... tables) {
+		for (NetworkTable t : tables) {
+			// System.out.println(t.getKeys());
+			for (String k : t.getKeys()) {
+				values = t.getNumberArray(k, new double[0]);
+				SmartDashboard.putString(k, Arrays.toString(values).substring(1, Arrays.toString(values).length() - 1));
+			}
+		}
+	}
 }
