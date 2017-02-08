@@ -54,8 +54,8 @@ public class Robot extends IterativeRobot {
 
 		myRobot = new RobotDrive(leftM, rightM);
 
-		// NetworkTable.setTeam(835);
-		// table = NetworkTable.getTable("GRIP/targets");
+		 NetworkTable.setTeam(835);
+		 table = NetworkTable.getTable("GRIP/targets");
 
 		setTables(table);
 	}
@@ -68,7 +68,7 @@ public class Robot extends IterativeRobot {
 	}
 
 	private double x;
-	double[] xvalues, areas;
+	double[] xvalues, areas, heights, widths;
 
 	public void autonomousPeriodic() {
 		setTables(table);
@@ -76,6 +76,7 @@ public class Robot extends IterativeRobot {
 		if (areas.length == 0) {
 			return;
 		}
+		heights = table.getNumberArray("height", new double[1]);
 		xvalues = table.getNumberArray("centerX", new double[0]);
 		if (xvalues.length == 0) {
 			x = Xres / 2;
@@ -87,7 +88,9 @@ public class Robot extends IterativeRobot {
 		SmartDashboard.putNumber("PreCurve", curve);
 		curve *= -1.55;
 		SmartDashboard.putNumber("PostCurve", curve);
-		
+		double distance = 4.15/12 * Yres / (2 * heights[0] * Math.tan(54*Math.PI/180));
+		SmartDashboard.putNumber("distance", distance);
+
 		if (autoLoopCounter < 500 || true) {
 			myRobot.arcadeDrive(0.0, curve);
 			autoLoopCounter++;
