@@ -1,6 +1,15 @@
 package org.usfirst.frc.team835.robot;
-
+import org.opencv.core.Rect;
+import org.opencv.imgproc.Imgproc;
+import edu.wpi.cscore.UsbCamera;
+import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.vision.VisionRunner;
+import edu.wpi.first.wpilibj.vision.VisionThread;
 import java.util.Arrays;
+
+import edu.wpi.cscore.AxisCamera;
 
 /*----------------------------------------------------------------------------*/
 /* Copyright (c) FIRST 2008. All Rights Reserved.                             */
@@ -13,6 +22,7 @@ import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 import edu.wpi.first.wpilibj.networktables.NetworkTable;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.vision.VisionThread;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -30,20 +40,53 @@ public class Robot extends IterativeRobot {
 
 	RobotDrive myRobot;
 	Joystick white;
-	int autoLoopCounter, Xres, Yres;
+	int autoLoopCounter;
 	double[] values;
 	TalonSRX leftM, rightM;
 	NetworkTable table;
+	
+	private static final int IMG_WIDTH = 640;
+	private static final int IMG_HEIGHT = 480;
+	private VisionThread visionThread;
+	private double centerX = 0.0;
+	private final Object imgLock = new Object();
+	private AxisCamera camera;
+	
 
+	private double x;
+	double[] xvalues, areas;
+	
+	
 	public Robot() {
 		// NetworkTable.setTeam(835);
 		table = NetworkTable.getTable("GRIP/targets");
 	}
 
 	public void robotInit() {
-		CameraServer.getInstance().addAxisCamera("Axis Camera", "10.8.35.4");
-		Xres = 640;
-		Yres = 480;
+
+		camera = new AxisCamera("Axis Camera", "10.8.35.4");
+		
+		camera.setResolution(IMG_WIDTH, IMG_HEIGHT);
+		
+		visionThread = new VisionThread(camera, new GripPipeline(), pipeline -> {
+	        if (!pipeline.filterContoursOutput().isEmpty()) {
+	        	System.out.println("+"+pipeline.filterContoursOutput().get(0));
+	        	System.out.println(pipeline.filterContoursOutput().get(1));
+	            Rect r = Imgproc.boundingRect(pipeline.filterContoursOutput().get(0));
+	            synchronized (imgLock) {
+	                centerX = r.x + (r.width / 2);
+	            }
+	        }
+	        else {
+	        	System.out.print("fail\n");
+	        }
+	    });
+		visionThread.start();
+		
+		
+//		CameraServer.getInstance().addAxisCamera("Axis Camera", "10.8.35.4");
+		CameraServer.getInstance().addCamera(camera);
+		
 		// CameraServer.getInstance().getVideo();
 		// CameraServer.getInstance().putVideo("Stream", 640, 480);
 
@@ -57,7 +100,7 @@ public class Robot extends IterativeRobot {
 		// NetworkTable.setTeam(835);
 		// table = NetworkTable.getTable("GRIP/targets");
 
-		setTables(table);
+//		setTables(table);
 	}
 
 	/**
@@ -67,37 +110,47 @@ public class Robot extends IterativeRobot {
 		autoLoopCounter = 0;
 	}
 
-	private double x;
-	double[] xvalues, areas;
 
 	public void autonomousPeriodic() {
-		setTables(table);
-		areas = table.getNumberArray("area", new double[0]);
-		if (areas.length == 0) {
-			return;
+		double centerX;
+		System.out.println("asdf");
+		SmartDashboard.putNumber("auto", autoLoopCounter);
+		autoLoopCounter++;
+		synchronized (imgLock) {
+			centerX = this.centerX;
 		}
-		xvalues = table.getNumberArray("centerX", new double[0]);
-		if (xvalues.length == 0) {
-			x = Xres / 2;
-		} else {
-			x = xvalues[0];
-		}
-		SmartDashboard.putNumber("actualX", x);
-		double curve = curveToCenter(x);
-		SmartDashboard.putNumber("PreCurve", curve);
-		curve *= -1.55;
-		SmartDashboard.putNumber("PostCurve", curve);
-		
-		if (autoLoopCounter < 500 || true) {
-			myRobot.arcadeDrive(0.0, curve);
-			autoLoopCounter++;
-		}
+		double turn = centerX - (IMG_WIDTH / 2);
+		myRobot.arcadeDrive(0, 0);
+		System.out.printf("turn: %s\n", turn);
+		System.out.printf("centerX: %s\n", centerX);
+
+//		setTables(table);
+//		areas = table.getNumberArray("area", new double[0]);
+//		if (areas.length == 0) {
+//			return;
+//		}
+//		xvalues = table.getNumberArray("centerX", new double[0]);
+//		if (xvalues.length == 0) {
+//			x = IMG_WIDTH / 2;
+//		} else {
+//			x = xvalues[0];
+//		}
+//		SmartDashboard.putNumber("actualX", x);
+//		double curve = curveToCenter(x);
+//		SmartDashboard.putNumber("PreCurve", curve);
+//		curve *= -1.55;
+//		SmartDashboard.putNumber("PostCurve", curve);
+//		
+//		if (autoLoopCounter < 500 || true) {
+//			myRobot.arcadeDrive(0.0, curve);
+//			autoLoopCounter++;
+//		}
 	}
 
 	double curveToCenter(double pos) {
 		
-		if (Math.abs(pos - Xres / 2) > 20) {
-			return (pos - Xres / 2) / Xres;
+		if (Math.abs(pos - IMG_WIDTH / 2) > 20) {
+			return (pos - IMG_WIDTH / 2) / IMG_WIDTH;
 		} else {
 			return 0.0;
 		}
@@ -121,7 +174,8 @@ public class Robot extends IterativeRobot {
 	}
 
 	public void testPeriodic() {
-		LiveWindow.run();
+
+		
 	}
 
 	void setTables(NetworkTable... tables) {
