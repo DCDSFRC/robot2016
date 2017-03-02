@@ -21,6 +21,14 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * creating this project, you must also update the manifest file in the resource
  * directory.
  */
+enum robotState{
+	LOST(0), FOUND(1);
+	private int val;
+	private robotState(int val){
+		this.val = val;
+	}
+}
+
 public class Robot extends IterativeRobot {
 
 	/**
@@ -30,20 +38,21 @@ public class Robot extends IterativeRobot {
 
 	RobotDrive myRobot;
 	Joystick white;
-	int autoLoopCounter, Xres, Yres;
+	int autoLoopCounter, xRes, yRes;
 	double[] values;
 	TalonSRX leftM, rightM;
 	NetworkTable table;
+	String tablepath = "GRIP/targets";
 
 	public Robot() {
 		// NetworkTable.setTeam(835);
-		table = NetworkTable.getTable("GRIP/targets");
+		table = NetworkTable.getTable(tablepath);
 	}
 
 	public void robotInit() {
 		CameraServer.getInstance().addAxisCamera("Axis Camera", "10.8.35.4");
-		Xres = 640;
-		Yres = 480;
+		xRes = 640;
+		yRes = 480;
 		// CameraServer.getInstance().getVideo();
 		// CameraServer.getInstance().putVideo("Stream", 640, 480);
 
@@ -54,10 +63,10 @@ public class Robot extends IterativeRobot {
 
 		myRobot = new RobotDrive(leftM, rightM);
 
-		 NetworkTable.setTeam(835);
-		 table = NetworkTable.getTable("GRIP/targets");
+		NetworkTable.setTeam(835);
+		table = NetworkTable.getTable(tablepath);
 
-		setTables(table);
+//		setTables(table);
 	}
 
 	/**
@@ -67,40 +76,55 @@ public class Robot extends IterativeRobot {
 		autoLoopCounter = 0;
 	}
 
-	private double x;
+	double x, distance, power, curve = 0;
 	double[] xvalues, areas, heights, widths;
 
 	public void autonomousPeriodic() {
-		setTables(table);
+//		setTables(table);
 		areas = table.getNumberArray("area", new double[0]);
 		if (areas.length == 0) {
+			myRobot.arcadeDrive(0, 0.7);
 			return;
 		}
-		heights = table.getNumberArray("height", new double[1]);
+		heights = table.getNumberArray("height", new double[0]);
 		xvalues = table.getNumberArray("centerX", new double[0]);
 		if (xvalues.length == 0) {
-			x = Xres / 2;
+			x = xRes / 2;
 		} else {
 			x = xvalues[0];
 		}
-		SmartDashboard.putNumber("actualX", x);
-		double curve = curveToCenter(x);
+		curve = curveToCenter(x);
+		SmartDashboard.putNumber("X", x);
 		SmartDashboard.putNumber("PreCurve", curve);
-		curve *= -1.55;
-		SmartDashboard.putNumber("PostCurve", curve);
-		double distance = 4.15/12 * Yres / (2 * heights[0] * Math.tan(54*Math.PI/180));
-		SmartDashboard.putNumber("distance", distance);
-
-		if (autoLoopCounter < 500 || true) {
-			myRobot.arcadeDrive(0.0, curve);
-			autoLoopCounter++;
+		curve *= -Math.sqrt(2.0);
+		if (curve > 0.5) {
+			curve = 0.5;
 		}
+		if (curve < -0.5) {
+			curve = -0.5;
+		}
+		if (heights.length != 0) {
+			distance = 5 / 12 * yRes / (2 * heights[0] * Math.tan(54 * Math.PI / 180));
+		} else {
+			distance = 0;
+		}
+
+		if (distance > 0.5) {
+			power = 5.0 / 9;
+		} else {
+			power = 0;
+		}
+		SmartDashboard.putNumber("PostCurve", curve);
+		SmartDashboard.putNumber("distance", distance);
+		SmartDashboard.putNumber("power", power);
+		// power = 0;
+		// curve = 0;
+		myRobot.arcadeDrive(power, curve);
 	}
 
 	double curveToCenter(double pos) {
-		
-		if (Math.abs(pos - Xres / 2) > 20) {
-			return (pos - Xres / 2) / Xres;
+		if (Math.abs(pos - xRes / 2) > 20) {
+			return (pos - xRes / 2) / xRes;
 		} else {
 			return 0.0;
 		}
@@ -118,7 +142,7 @@ public class Robot extends IterativeRobot {
 									// time the robot receives a packet
 									// instructing it to be in teleoperated
 									// enabled mode
-		setTables(table);
+//		setTables(table);
 		myRobot.arcadeDrive(-white.getY(), -white.getZ());
 
 	}
@@ -127,7 +151,7 @@ public class Robot extends IterativeRobot {
 		LiveWindow.run();
 	}
 
-	void setTables(NetworkTable... tables) {
+	void sendTables(NetworkTable... tables) {
 		for (NetworkTable t : tables) {
 			// System.out.println(t.getKeys());
 			for (String k : t.getKeys()) {
@@ -135,5 +159,16 @@ public class Robot extends IterativeRobot {
 				SmartDashboard.putString(k, Arrays.toString(values).substring(1, Arrays.toString(values).length() - 1));
 			}
 		}
+	}
+
+	void routine1() {
+
+	}
+
+	/**
+	 * double tape. uses blobs
+	 */
+	void routine2() {
+
 	}
 }
